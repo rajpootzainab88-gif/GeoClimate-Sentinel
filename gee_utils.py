@@ -34,6 +34,35 @@ def aoi_from_geojson(geojson_data):
         elif geom_type == "Point":
             return ee.Geometry.Point(coords)
         else:
+            def normalize(image, min_val=0, max_val=1):
+    """Normalize an EE image to a specified range."""
+    bv = image.reduceRegion(
+        reducer=ee.Reducer.minMax(),
+        geometry=image.geometry(),
+        scale=1000,
+        maxPixels=1e9
+    )
+    # Simple min-max scaling helper
+    return image.unitScale(0, 100).clamp(min_val, max_val)
+
+def region_stats(image, geometry, scale=1000):
+    """Calculate mean statistics for an image over a region."""
+    stats = image.reduceRegion(
+        reducer=ee.Reducer.mean(),
+        geometry=geometry,
+        scale=scale,
+        maxPixels=1e9
+    )
+    return stats
+
+def classify_risk(value):
+    """Classify continuous risk values into distinct levels."""
+    if value > 0.75:
+        return "High Risk"
+    elif value > 0.4:
+        return "Moderate Risk"
+    else:
+        return "Low Risk"
             return ee.Geometry(geojson_data["geometry"])
     except Exception as e:
         st.error(f"Error parsing spatial boundary: {e}")
