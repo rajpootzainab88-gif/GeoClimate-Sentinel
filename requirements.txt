@@ -1,0 +1,15 @@
+streamlit>=1.32
+earthengine-api>=0.1.390
+geemap>=0.32
+streamlit-folium>=0.19
+folium>=0.16
+pandas
+numpy
+plotly
+scikit-learn
+xgboost
+joblib
+geopy
+# Only needed if your forecast model is an LSTM (Keras/TensorFlow).
+# Comment out if you only use XGBoost - it's a large install.
+tensorflow>=2.15
