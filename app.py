@@ -17,11 +17,11 @@ from geopy.geocoders import Nominatim
 import pandas as pd
 import requests
 
-from modules.gee_utils import init_ee, aoi_from_geojson
-from modules.heat_risk import compute_heat_risk
-from modules.flood_risk import compute_flood_risk
-from modules.ai_forecast import forecast_next_value, heat_condition_label
-from modules.integrated_risk import compute_integrated_risk
+from gee_utils import init_ee, aoi_from_geojson
+from heat_risk import compute_heat_risk
+from flood_risk import compute_flood_risk
+from ai_forecast import forecast_next_value, heat_condition_label
+from integrated_risk import compute_integrated_risk
 
 st.set_page_config(page_title="GeoClimate Sentinel", page_icon="\U0001F30D", layout="wide")
 
