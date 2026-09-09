@@ -1,6 +1,6 @@
 """Combine Heat Risk + Flood Risk (+ optional forecast signal) into one score."""
 
-from modules.gee_utils import classify_risk
+from gee_utils import classify_risk
 
 WEIGHTS = {"heat": 0.45, "flood": 0.45, "forecast": 0.10}
 
