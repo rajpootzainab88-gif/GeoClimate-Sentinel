@@ -10,7 +10,7 @@ Datasets (all global, all free via GEE):
 """
 
 import ee
-from modules.gee_utils import normalize, region_stats, classify_risk
+from gee_utils import normalize, region_stats, classify_risk
 
 # Weights - state clearly in your report that these are a first-pass calibration,
 # not a universally validated standard. You can sensitivity-test these later.
