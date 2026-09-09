@@ -31,9 +31,11 @@ def init_ee():
         try:
             # --- Option B: service account (for cloud deployment) ---
             # Store the service account JSON as a Streamlit secret named "gee_service_account"
-            service_account = st.secrets["gee_service_account"]["client_email"]
+            key_dict = dict(st.secrets["gee_service_account"])
+            private_key = key_dict["private_key"].replace("\\n", "\n")
             credentials = ee.ServiceAccountCredentials(
-                service_account, key_data=st.secrets["gee_service_account"]["private_key"]
+                key_dict["client_email"],
+                key_data=private_key
             )
             ee.Initialize(credentials, project=EE_PROJECT)
         except Exception as e:
