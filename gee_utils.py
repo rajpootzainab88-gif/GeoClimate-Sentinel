@@ -25,19 +25,24 @@ EE_PROJECT = "skilful-webbing-475409-t1"  # <-- replace with your GEE Cloud proj
 def init_ee():
     """Initialize Earth Engine once per app session."""
     try:
-        # --- Option A: local interactive auth (after `earthengine authenticate`) ---
         ee.Initialize(project=EE_PROJECT)
     except Exception:
         try:
-            # --- Option B: service account (for cloud deployment) ---
-            # Store the service account JSON as a Streamlit secret named "gee_service_account"
             key_dict = dict(st.secrets["gee_service_account"])
-            private_key = key_dict["private_key"].replace("\\n", "\n")
+            
+            # Clean and reformat private key robustly
+            pk = key_dict["private_key"]
+            pk = pk.replace("\\n", "\n")
+            if not pk.startswith("-----BEGIN PRIVATE KEY-----"):
+                pk = f"-----BEGIN PRIVATE KEY-----\n{pk}\n-----END PRIVATE KEY-----\n"
+            
             credentials = ee.ServiceAccountCredentials(
                 key_dict["client_email"],
-                key_data=private_key
+                key_data=pk
             )
             ee.Initialize(credentials, project=EE_PROJECT)
+        except Exception as e:
+            st.error(f"Could not connect to Google Earth Engine: {e}")
         except Exception as e:
             st.error(
                 "Could not connect to Google Earth Engine. "
