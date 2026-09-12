@@ -17,24 +17,17 @@ from geopy.geocoders import Nominatim
 import pandas as pd
 import requests
 
-from gee_utils import init_ee, aoi_from_geojson
-from heat_risk import compute_heat_risk
-from flood_risk import compute_flood_risk
-from ai_forecast import forecast_next_value, heat_condition_label
-from integrated_risk import compute_integrated_risk
+from modules.gee_utils import init_ee, aoi_from_geojson
+from modules.heat_risk import compute_heat_risk
+from modules.flood_risk import compute_flood_risk
+from modules.ai_forecast import forecast_next_value, heat_condition_label
+from modules.integrated_risk import compute_integrated_risk
 
 st.set_page_config(page_title="GeoClimate Sentinel", page_icon="\U0001F30D", layout="wide")
 
-# Set default map center to Islamabad, Pakistan
-DEFAULT_CENTER = [33.6844, 73.0479]
+DEFAULT_CENTER = [23.16, 79.93]  # Jabalpur region
+DEFAULT_ZOOM = 6
 
-# In session state initialization:
-if "map_center" not in st.session_state:
-    st.session_state.map_center = [33.6844, 73.0479]
-if "map_zoom" not in st.session_state:
-    st.session_state.map_zoom = 10
-if "forecast_location" not in st.session_state:
-    st.session_state.forecast_location = "Islamabad"
 
 def find_best_boundary_match(geolocator, query):
     """
@@ -116,7 +109,7 @@ for k, v in {
     "flood_tile_url": None,
     "flood_image": None,
     "map_center": DEFAULT_CENTER,
-    "map_zoom": 10,
+    "map_zoom": DEFAULT_ZOOM,
     "search_marker": None,
     "search_label": None,
     "search_boundary": None,
@@ -364,7 +357,7 @@ elif page == "AI Forecast":
         st.metric(f"Predicted tomorrow's Tmax for {st.session_state.forecast_location} (\u00b0C)",
                   result["predicted_value"])
         st.write("Heat condition:", heat_condition_label(result["predicted_value"]))
-        st.caption("Model trained on: Islamabad, Pakistan precipitation/temperature dataset (internship data).")
+        st.caption("Model trained on: Islamabad, Pakistan rooftop temperature dataset (internship data).")
         if result["is_demo_fallback"]:
             st.warning(
                 "No trained model file found in /sample_model - showing a placeholder "
@@ -415,27 +408,28 @@ elif page == "Integrated Risk":
 elif page == "Methodology":
     st.header("Methodology")
     st.markdown(
-    """
-    **Heat Risk Index** = 0.35·LST + 0.25·NDBI + 0.25·(1-NDVI) + 0.15·Built-up fraction 
-    (MODIS LST, Sentinel-2 NDVI/NDBI, ESA WorldCover) - **works for any location on Earth.** 
-    Retrospective: reflects conditions during the selected past date range, not a future forecast.
+        """
+        **Heat Risk Index** = 0.35\u00b7LST + 0.25\u00b7NDBI + 0.25\u00b7(1-NDVI) + 0.15\u00b7Built-up fraction
+        (MODIS LST, Sentinel-2 NDVI/NDBI, ESA WorldCover) - **works for any location on Earth.**
+        Retrospective: reflects conditions during the selected past date range, not a future forecast.
 
-    **Flood Risk Index** = 0.30·(1-slope) + 0.30·rainfall + 0.25·water occurrence + 0.15·exposed land cover 
-    (SRTM DEM, CHIRPS rainfall, JRC Global Surface Water, ESA WorldCover) - **works for any location on Earth.** 
-    Retrospective: reflects conditions during the selected past date range, not a future forecast.
+        **Flood Risk Index** = 0.30\u00b7(1-slope) + 0.30\u00b7rainfall + 0.25\u00b7water occurrence + 0.15\u00b7exposed land cover
+        (SRTM DEM, CHIRPS rainfall, JRC Global Surface Water, ESA WorldCover) - **works for any location on Earth.**
+        Retrospective: reflects conditions during the selected past date range, not a future forecast.
 
-    **AI Forecast**: XGBoost model trained on internship-collected daily temperature 
-    data for Islamabad (features: today's Tmax/Tmin/Tmean -> predicts tomorrow's Tmax). 
-    This is the only genuinely forward-looking component of the app. The tool accepts input 
-    for any location, but predictions are validated for Islamabad's climate patterns.
+        **AI Forecast**: XGBoost model trained on internship-collected daily temperature
+        data for Islamabad, Pakistan (features: today's Tmax/Tmin/Tmean -> predicts tomorrow's Tmax).
+        This is the only genuinely forward-looking component of the app. The tool accepts input
+        for any location, but predictions are only validated for Islamabad's climate patterns;
+        accuracy elsewhere is not guaranteed.
 
-    **Integrated Risk** = weighted combination of Heat Risk and Flood Risk (+ forecast signal).
+        **Integrated Risk** = weighted combination of Heat Risk and Flood Risk (+ forecast signal).
 
-    Weights are a first-pass calibration for demonstration purposes, not a 
-    universally validated standard - state this explicitly in your report.
+        Weights are a first-pass calibration for demonstration purposes, not a
+        universally validated standard - state this explicitly in your report.
 
-    **Data availability note**: all satellite datasets used (MODIS, Sentinel-2, CHIRPS, SRTM, 
-    ESA WorldCover, JRC Global Surface Water) are historical/retrospective records. Date ranges 
-    must be in the past; future dates return no data.
-    """
-)
+        **Data availability note**: all satellite datasets used (MODIS, Sentinel-2, CHIRPS, SRTM,
+        ESA WorldCover, JRC Global Surface Water) are historical/retrospective records. Date ranges
+        must be in the past; future dates return no data.
+        """
+    )
