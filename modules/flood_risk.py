@@ -19,7 +19,7 @@ optional function at the bottom.
 """
 
 import ee
-from gee_utils import normalize, region_stats, classify_risk
+from modules.gee_utils import normalize, region_stats, classify_risk
 
 WEIGHTS = {"slope_inv": 0.30, "rainfall": 0.30, "water_occurrence": 0.25, "landcover": 0.15}
 
