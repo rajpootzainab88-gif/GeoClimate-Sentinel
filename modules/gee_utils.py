@@ -1,69 +1,89 @@
+"""
+GEE connection + shared helper functions.
+
+SETUP (do this first, before anything else in the app):
+1. Create a Google Cloud project and enable the Earth Engine API:
+   https://console.cloud.google.com/  ->  "Earth Engine API" -> Enable
+2. Register the project for Earth Engine access:
+   https://code.earthengine.google.com/register
+3. Locally, run once in your terminal:
+       earthengine authenticate
+   This opens a browser login and caches a token on your machine.
+4. Set EE_PROJECT below to your Cloud project ID.
+
+For deployment (Streamlit Community Cloud etc.) use a SERVICE ACCOUNT
+instead of interactive auth - see the "SERVICE ACCOUNT" block below.
+"""
+
 import json
 import ee
 import streamlit as st
 
-EE_PROJECT = "skilful-webbing-475409-t1"
+EE_PROJECT = "skilful-webbing-475409-t1"  # your GEE Cloud project ID
+
 
 @st.cache_resource
 def init_ee():
     """Initialize Earth Engine once per app session."""
     try:
+        # --- Option A: local interactive auth (after `earthengine authenticate`) ---
         ee.Initialize(project=EE_PROJECT)
     except Exception:
         try:
-            # Read JSON string directly from secrets
-            json_str = st.secrets["gee_service_account"]["json_key"]
-            key_info = json.loads(json_str)
-            
+            # --- Option B: service account (for cloud deployment) ---
+            # The full downloaded JSON key file is stored as a Streamlit secret
+            # table named "gee_service_account" (see Stage 4 setup instructions).
+            info = dict(st.secrets["gee_service_account"])
             credentials = ee.ServiceAccountCredentials(
-                key_info["client_email"],
-                key_data=key_info["private_key"]
+                info["client_email"], key_data=json.dumps(info)
             )
             ee.Initialize(credentials, project=EE_PROJECT)
         except Exception as e:
-            st.error(f"Could not connect to Google Earth Engine: {e}")
-def aoi_from_geojson(geojson_data):
-    """Convert Streamlit Folium drawn GeoJSON features to Earth Engine Geometry."""
-    try:
-        coords = geojson_data["geometry"]["coordinates"]
-        geom_type = geojson_data["geometry"]["type"]
-        if geom_type == "Polygon":
-            return ee.Geometry.Polygon(coords)
-        elif geom_type == "MultiPolygon":
-            return ee.Geometry.MultiPolygon(coords)
-        elif geom_type == "Point":
-            return ee.Geometry.Point(coords)
-        else:
-            def normalize(image, min_val=0, max_val=1):
-    """Normalize an EE image to a specified range."""
-    bv = image.reduceRegion(
-        reducer=ee.Reducer.minMax(),
-        geometry=image.geometry(),
-        scale=1000,
-        maxPixels=1e9
-    )
-    # Simple min-max scaling helper
-    return image.unitScale(0, 100).clamp(min_val, max_val)
+            st.error(
+                "Could not connect to Google Earth Engine. "
+                "Run `earthengine authenticate` locally, or configure a service "
+                "account in st.secrets for deployment. "
+                f"Details: {e}"
+            )
+            st.stop()
+    return True
 
-def region_stats(image, geometry, scale=1000):
-    """Calculate mean statistics for an image over a region."""
-    stats = image.reduceRegion(
-        reducer=ee.Reducer.mean(),
-        geometry=geometry,
-        scale=scale,
-        maxPixels=1e9
-    )
-    return stats
 
-def classify_risk(value):
-    """Classify continuous risk values into distinct levels."""
-    if value > 0.75:
-        return "High Risk"
-    elif value > 0.4:
-        return "Moderate Risk"
-    else:
-        return "Low Risk"
-            return ee.Geometry(geojson_data["geometry"])
-    except Exception as e:
-        st.error(f"Error parsing spatial boundary: {e}")
-        return None
+def aoi_from_geojson(geojson_geom: dict) -> "ee.Geometry":
+    """Convert a GeoJSON geometry (from the drawn/searched AOI) into an ee.Geometry."""
+    return ee.Geometry(geojson_geom)
+
+
+def region_stats(image: "ee.Image", aoi: "ee.Geometry", scale: int = 100, band_names=None) -> dict:
+    """Mean-reduce an image over the AOI and return a plain python dict of stats."""
+    reducer = ee.Reducer.mean()
+    stats = image.reduceRegion(reducer=reducer, geometry=aoi, scale=scale, maxPixels=1e9, bestEffort=True)
+    result = stats.getInfo()
+    if band_names:
+        result = {k: result.get(k) for k in band_names}
+    return result
+
+
+def normalize(image: "ee.Image", band: str, aoi: "ee.Geometry", scale: int = 100) -> "ee.Image":
+    """Min-max normalize a single band of an image to 0-1 over the AOI."""
+    stats = image.select(band).reduceRegion(
+        reducer=ee.Reducer.minMax(), geometry=aoi, scale=scale, maxPixels=1e9, bestEffort=True
+    )
+    lo = ee.Number(stats.get(band + "_min"))
+    hi = ee.Number(stats.get(band + "_max"))
+    return image.select(band).subtract(lo).divide(hi.subtract(lo).max(1e-6)).rename(band + "_norm")
+
+
+def classify_risk(score: float) -> str:
+    """Map a 0-1 risk score to a class label."""
+    if score is None:
+        return "No data"
+    if score < 0.20:
+        return "Very Low"
+    if score < 0.40:
+        return "Low"
+    if score < 0.60:
+        return "Moderate"
+    if score < 0.80:
+        return "High"
+    return "Very High"
